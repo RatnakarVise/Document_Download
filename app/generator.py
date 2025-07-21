@@ -8,7 +8,7 @@ from langchain.docstore.document import Document
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_community.embeddings import HuggingFaceEmbeddings
-
+import gc
 # Load env vars from .env
 dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path=dotenv_path)
@@ -20,18 +20,33 @@ if langchain_api_key:
 #     os.environ["GROQ_API_KEY"] = groq_api_key
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
+_embedding_model = None
+def get_embedding_model():
+    global _embedding_model
+    if _embedding_model is None:
+        _embedding_model = HuggingFaceEmbeddings(
+            # model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_name="sentence-transformers/paraphrase-MiniLM-L3-v2",
+            model_kwargs={'device': 'cpu'}
+        )
+    return _embedding_model
 def build_template_retriever(template: str):
     """Build a retriever for the passed-in template string."""
     documents = [Document(page_content=template)]
-    splitter = RecursiveCharacterTextSplitter(chunk_size=20000, chunk_overlap=200)
+    splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
     docs = splitter.split_documents(documents)
     # embedding = OpenAIEmbeddings()
-    embedding = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            model_kwargs={'device': 'cpu'}
-    )
-    vectorstore = Chroma.from_documents(docs, embedding)
-    return vectorstore.as_retriever()
+    # embedding = HuggingFaceEmbeddings(
+    #         model_name="sentence-transformers/all-MiniLM-L6-v2",
+    #         model_kwargs={'device': 'cpu'}
+    # )
+    embedding = get_embedding_model()
+    vectorstore = Chroma.from_documents(docs, embedding,persist_directory=None )
+    retriever = vectorstore.as_retriever()
+    del vectorstore
+    del docs
+    del documents
+    return retriever
 
 def generate_fs_from_requirement(
     requirement: str,
@@ -42,6 +57,7 @@ def generate_fs_from_requirement(
     use RAG retrieval of template and generate a doc strictly following it.
     """
     retriever = build_template_retriever(fs_template)
+    
     retrieved_docs = retriever.get_relevant_documents(requirement)
     # Should always retrieve the template, since it's the only doc.
     retrieved_template = "\n\n".join(doc.page_content for doc in retrieved_docs)
@@ -62,6 +78,11 @@ def generate_fs_from_requirement(
     llm =  ChatGroq(  model_name="llama3-70b-8192")
     # llm = ChatOpenAI(model="gpt-4o", temperature=0.4)
     response = llm.invoke(messages)
+     # Clean up
+    del retriever
+    del retrieved_docs
+    del messages
+    gc.collect()
     return response.content if hasattr(response, "content") else str(response)
 
 
@@ -74,6 +95,7 @@ def generate_ts_from_requirement(
     use RAG retrieval of template and generate a technical specification strictly following it.
     """
     retriever = build_template_retriever(ts_template)
+    
     retrieved_docs = retriever.get_relevant_documents(requirement)
     # Should always retrieve the template, since it's the only doc.
     retrieved_template = "\n\n".join(doc.page_content for doc in retrieved_docs)
@@ -94,6 +116,11 @@ def generate_ts_from_requirement(
     llm =  ChatGroq(  model_name="llama3-70b-8192")
     # llm = ChatOpenAI(model="gpt-4o", temperature=0.4)
     response = llm.invoke(messages)
+     # Clean up
+    del retriever
+    del retrieved_docs
+    del messages
+    gc.collect()
     return response.content if hasattr(response, "content") else str(response)
 
 
@@ -106,6 +133,7 @@ def generate_abap_code_from_requirement(
     use RAG retrieval of template and generate ABAP code strictly following it.
     """
     retriever = build_template_retriever(abap_template)
+    
     retrieved_docs = retriever.get_relevant_documents(requirement)
     # Should always retrieve the template, since it's the only doc.
     retrieved_template = "\n\n".join(doc.page_content for doc in retrieved_docs)
@@ -128,4 +156,9 @@ def generate_abap_code_from_requirement(
     llm =  ChatGroq(  model_name="llama3-70b-8192")
     # llm = ChatOpenAI(model="gpt-4o", temperature=0.2)
     response = llm.invoke(messages)
+     # Clean up
+    del retriever
+    del retrieved_docs
+    del messages
+    gc.collect()
     return response.content if hasattr(response, "content") else str(response)
