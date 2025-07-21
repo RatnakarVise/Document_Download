@@ -17,7 +17,7 @@ groq_api_key = os.getenv("GROQ_API_KEY")
 if langchain_api_key:
     os.environ["LANGCHAIN_API_KEY"] = langchain_api_key
 if groq_api_key:
-    os.environ["GROQ_API_KEY"] = gorq_api_key
+    os.environ["GROQ_API_KEY"] = groq_api_key
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
 
 def build_template_retriever(template: str):
