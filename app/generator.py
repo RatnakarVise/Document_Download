@@ -6,16 +6,18 @@ from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
 from dotenv import load_dotenv
+from langchain_groq import ChatGroq
+from langchain_community.embeddings import HuggingFaceEmbeddings
 
 # Load env vars from .env
 dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path=dotenv_path)
 langchain_api_key = os.getenv("LANGCHAIN_API_KEY")
-openai_api_key = os.getenv("OPENAI_API_KEY")
+groq_api_key = os.getenv("GROQ_API_KEY")
 if langchain_api_key:
     os.environ["LANGCHAIN_API_KEY"] = langchain_api_key
-if openai_api_key:
-    os.environ["OPENAI_API_KEY"] = openai_api_key
+if groq_api_key:
+    os.environ["GROQ_API_KEY"] = gorq_api_key
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
 
 def build_template_retriever(template: str):
@@ -23,7 +25,11 @@ def build_template_retriever(template: str):
     documents = [Document(page_content=template)]
     splitter = RecursiveCharacterTextSplitter(chunk_size=20000, chunk_overlap=200)
     docs = splitter.split_documents(documents)
-    embedding = OpenAIEmbeddings()
+    # embedding = OpenAIEmbeddings()
+    embedding = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_kwargs={'device': 'cpu'}
+    )
     vectorstore = Chroma.from_documents(docs, embedding)
     return vectorstore.as_retriever()
 
@@ -53,8 +59,8 @@ def generate_fs_from_requirement(
         requirement=requirement,
         fs_template=retrieved_template
     )
-
-    llm = ChatOpenAI(model="gpt-4o", temperature=0.4)
+    llm =  ChatGroq(  model_name="llama3-70b-8192")
+    # llm = ChatOpenAI(model="gpt-4o", temperature=0.4)
     response = llm.invoke(messages)
     return response.content if hasattr(response, "content") else str(response)
 
@@ -85,8 +91,8 @@ def generate_ts_from_requirement(
         requirement=requirement,
         ts_template=retrieved_template
     )
-
-    llm = ChatOpenAI(model="gpt-4o", temperature=0.4)
+    llm =  ChatGroq(  model_name="llama3-70b-8192")
+    # llm = ChatOpenAI(model="gpt-4o", temperature=0.4)
     response = llm.invoke(messages)
     return response.content if hasattr(response, "content") else str(response)
 
@@ -119,7 +125,7 @@ def generate_abap_code_from_requirement(
         requirement=requirement,
         abap_template=retrieved_template
     )
-
-    llm = ChatOpenAI(model="gpt-4o", temperature=0.2)
+    llm =  ChatGroq(  model_name="llama3-70b-8192")
+    # llm = ChatOpenAI(model="gpt-4o", temperature=0.2)
     response = llm.invoke(messages)
     return response.content if hasattr(response, "content") else str(response)
